@@ -217,32 +217,32 @@ async function downloadValuesFromTensorContainer(tensorContainer) {
 }
 
 /**
-* Executes the predict function for `model` (`model.predict` for tf.LayersModel
-* and `model.executeAsync` for tf.GraphModel) and returns a promise that
-* resolves with information about the memory usage:
-* - `newBytes`: the number of new bytes allocated
-* - `newTensors`: the number of new tensors created
-* - `peakBytes`: the peak number of bytes allocated
-* - `kernels`: an array of objects for each kernel involved that reports
-* their input and output shapes, number of bytes used, and number of new
-* tensors created.
-*
-* ```js
-* const modelUrl =
-*    'https://tfhub.dev/google/imagenet/mobilenet_v2_140_224/classification/2';
-* const model = await tf.loadGraphModel(modelUrl, {fromTFHub: true});
-* const zeros = tf.zeros([1, 224, 224, 3]);
-* const memoryInfo = await profileInferenceMemoryForModel(model, zeros);
-*
-* console.log(`newBytes: ${memoryInfo.newBytes}`);
-* console.log(`newTensors: ${memoryInfo.newTensors}`);
-* console.log(`peakBytes: ${memoryInfo.peakBytes}`);
-* ```
-*
-* @param model An instance of tf.GraphModel or tf.LayersModel for profiling
-*     memory usage in the inference process.
-* @param input The input tensor container for model inference.
-*/
+ * Executes the predict function for `model` (`model.predict` for tf.LayersModel
+ * and `model.executeAsync` for tf.GraphModel) and returns a promise that
+ * resolves with information about the memory usage:
+ * - `newBytes`: the number of new bytes allocated
+ * - `newTensors`: the number of new tensors created
+ * - `peakBytes`: the peak number of bytes allocated
+ * - `kernels`: an array of objects for each kernel involved that reports
+ * their input and output shapes, number of bytes used, and number of new
+ * tensors created.
+ *
+ * ```js
+ * const modelUrl =
+ *    'https://tfhub.dev/google/imagenet/mobilenet_v2_140_224/classification/2';
+ * const model = await tf.loadGraphModel(modelUrl, {fromTFHub: true});
+ * const zeros = tf.zeros([1, 224, 224, 3]);
+ * const memoryInfo = await profileInferenceMemoryForModel(model, zeros);
+ *
+ * console.log(`newBytes: ${memoryInfo.newBytes}`);
+ * console.log(`newTensors: ${memoryInfo.newTensors}`);
+ * console.log(`peakBytes: ${memoryInfo.peakBytes}`);
+ * ```
+ *
+ * @param model An instance of tf.GraphModel or tf.LayersModel for profiling
+ *     memory usage in the inference process.
+ * @param input The input tensor container for model inference.
+ */
 async function profileInferenceMemoryForModel(model, input) {
   const predict = wrapPredictFnForModel(model, input);
   return profileInferenceMemory(predict);
@@ -289,7 +289,8 @@ async function profileInferenceMemory(predict) {
 
 /**
  * This function is temporarily used and will be deleted after a new release of
- * tf-core. This function modifies [`tf.profile`](https://github.com/tensorflow/tfjs/blob/95b5f878218ee45c0f8464386ee01d1f96e78297/tfjs-core/src/engine.ts#L848)
+ * tf-core. This function modifies
+ * [`tf.profile`](https://github.com/tensorflow/tfjs/blob/95b5f878218ee45c0f8464386ee01d1f96e78297/tfjs-core/src/engine.ts#L848)
  * in the following points:
  * - replaces all `this` by `tf.engine()`
  * - adds `await` in `this.state.activeProfile.result = query();`
@@ -316,14 +317,25 @@ async function profile(query) {
   return engine.state.activeProfile;
 }
 
-async function profileInferenceMemory(predict) {
+function queryTimerIsEnabled() {
+  return _tfengine.ENV.getNumber(
+             'WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION') > 0;
+}
+
+async function profileInferenceKernelTime(predict) {
   if (typeof predict !== 'function') {
     throw new Error(
         'The first parameter should be a function, while ' +
         `a(n) ${typeof predict} is found.`);
   }
 
-  _tfengine.ENV.set('DEBUG', true);
+  if (tf.getBackend() === 'webgl' && !queryTimerIsEnabled()) {
+    throw new Error(
+        'Query timer extension is not available. Please use Chrome 70+.');
+  }
+
+  const oldDebugMode = tf.env().getBool('DEBUG');
+  tf.env().set('DEBUG', true);
   const oldLog = console.log;
   let kernels = [];
   console.log = msg => {
@@ -335,10 +347,10 @@ async function profileInferenceMemory(predict) {
     if (parts.length > 2) {
       // heuristic for determining whether we've caught a profiler
       // log statement as opposed to a regular console.log
-      // TODO(https://github.com/tensorflow/tfjs/issues/563): return timing information as part of tf.profile
-      const scopes = parts[0].trim()
-        .split('||')
-        .filter(s => s !== 'unnamed scope');
+      // TODO(https://github.com/tensorflow/tfjs/issues/563): return timing
+      // information as part of tf.profile
+      const scopes =
+          parts[0].trim().split('||').filter(s => s !== 'unnamed scope');
       kernels.push({
         scopes: scopes,
         time: Number.parseFloat(parts[1]),
@@ -349,12 +361,14 @@ async function profileInferenceMemory(predict) {
     } else {
       oldLog.call(oldLog, msg);
     }
-  }
+  };
   let res = await predict();
   res = await downloadValuesFromTensorContainer(res);
   await sleep(10);
-  _tfengine.ENV.set('DEBUG', false);
+
   // Switch back to the old log;
+  tf.env().set('DEBUG', oldDebugMode);
   console.log = oldLog;
+
   return kernels;
 }
