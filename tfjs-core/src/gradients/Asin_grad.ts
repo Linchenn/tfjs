@@ -15,5 +15,21 @@
  * =============================================================================
  */
 
-import {registerUnaryKernel} from './unary_kernel';
-registerUnaryKernel('Neg');
+import {Asin} from '../kernel_names';
+import {GradConfig} from '../kernel_registry';
+import {cast} from '../ops/array_ops';
+import {div} from '../ops/div';
+import {square} from '../ops/square';
+import {sub} from '../ops/sub';
+import {scalar} from '../ops/tensor_ops';
+import {sqrt} from '../ops/unary_ops';
+import {Tensor} from '../tensor';
+
+export const asinGradConfig: GradConfig = {
+  kernelName: Asin,
+  inputsToSave: ['x'],
+  gradFunc: (dy: Tensor, saved: Tensor[]) => {
+    const [x] = saved;
+    return {x: () => div(dy, sqrt(sub(scalar(1), square(cast(x, 'float32')))))};
+  }
+};

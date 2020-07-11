@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2019 Google LLC. All Rights Reserved.
+ * Copyright 2020 Google LLC. All Rights Reserved.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,7 +15,20 @@
  * =============================================================================
  */
 
-import {Multiply} from '@tensorflow/tfjs-core';
-import {registerBinaryKernel} from './binary_kernel';
-const supportsFullBroadcast = true;
-registerBinaryKernel(Multiply, supportsFullBroadcast);
+import {Cos} from '../kernel_names';
+import {GradConfig} from '../kernel_registry';
+import {cast} from '../ops/array_ops';
+import {mul} from '../ops/mul';
+import {neg} from '../ops/neg';
+import {sin} from '../ops/sin';
+import {Tensor} from '../tensor';
+
+export const cosGradConfig: GradConfig = {
+  kernelName: Cos,
+  inputsToSave: ['x'],
+  gradFunc: (dy: Tensor, saved: Tensor[]) => {
+    const [x] = saved;
+
+    return {x: () => mul(neg(sin(cast(x, 'float32'))), dy)};
+  }
+};

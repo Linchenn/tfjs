@@ -15,7 +15,7 @@
  * =============================================================================
  */
 
-import {backend_util, KernelFunc, registerKernel, TensorInfo, util} from '@tensorflow/tfjs-core';
+import {backend_util, KernelConfig, KernelFunc, TensorInfo, util} from '@tensorflow/tfjs-core';
 import {Max, MaxAttrs, MaxInputs} from '@tensorflow/tfjs-core';
 
 import {BackendWasm} from '../backend_wasm';
@@ -43,12 +43,8 @@ function max(args: {backend: BackendWasm, inputs: MaxInputs, attrs: MaxAttrs}):
 
   if (inputWasTransposed) {
     const transposedId = backend.dataIdMap.get(transposed.dataId).id;
-    if (transposedId !== xId) {
-      // transpose was not a no-op. We will need to dispose of this
-      // once we are done.
-      input = transposed;
-      inputId = transposedId;
-    }
+    input = transposed;
+    inputId = transposedId;
   }
 
   const inputRank = input.shape.length;
@@ -77,9 +73,9 @@ function max(args: {backend: BackendWasm, inputs: MaxInputs, attrs: MaxAttrs}):
   return out;
 }
 
-registerKernel({
+export const maxConfig: KernelConfig = {
   kernelName: Max,
   backendName: 'wasm',
   setupFunc: setup,
   kernelFunc: max as {} as KernelFunc
-});
+};

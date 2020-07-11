@@ -15,19 +15,11 @@
  * =============================================================================
  */
 
-import {NamedAttrMap, NamedTensorInfoMap, registerKernel, scatter_util, TensorInfo, util} from '@tensorflow/tfjs-core';
+import {KernelConfig, KernelFunc, scatter_util, ScatterNd, ScatterNdAttrs, ScatterNdInputs, TensorInfo, util} from '@tensorflow/tfjs-core';
 
 import {BackendWasm} from '../backend_wasm';
+
 import {CppDType} from './types';
-
-interface ScatterNdInputs extends NamedTensorInfoMap {
-  indices: TensorInfo;
-  updates: TensorInfo;
-}
-
-interface ScatterNdAttrs extends NamedAttrMap {
-  shape: number[];
-}
 
 let wasmScatterNd: (
     indicesId: number, updatesId: number, dtype: CppDType, sliceRank: number,
@@ -80,9 +72,9 @@ function scatterNd(
   return out;
 }
 
-registerKernel({
-  kernelName: 'ScatterNd',
+export const scatterNdConfig: KernelConfig = {
+  kernelName: ScatterNd,
   backendName: 'wasm',
   setupFunc: setup,
-  kernelFunc: scatterNd
-});
+  kernelFunc: scatterNd as {} as KernelFunc
+};
