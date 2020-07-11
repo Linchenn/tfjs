@@ -289,7 +289,9 @@ async function profileInferenceMemory(predict) {
 
 /**
  * This function is temporarily used and will be deleted after a new release of
- * tf-core. This function modifies [`tf.profile`](https://github.com/tensorflow/tfjs/blob/95b5f878218ee45c0f8464386ee01d1f96e78297/tfjs-core/src/engine.ts#L848)
+ * tf-core. This function modifies
+ * [`tf.profile`](https://github.com/tensorflow/tfjs/blob/95b5f878218ee45c0f8464386ee01d1f96e78297/tfjs-core/src/engine.ts#L848)
+
  * in the following points:
  * - replaces all `this` by `tf.engine()`
  * - adds `await` in `this.state.activeProfile.result = query();`
@@ -314,4 +316,60 @@ async function profile(query) {
   engine.state.activeProfile.newTensors =
       engine.state.numTensors - startNumTensors;
   return engine.state.activeProfile;
+}
+
+function queryTimerIsEnabled() {
+  return _tfengine.ENV.getNumber(
+             'WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION') > 0;
+}
+
+async function profileInferenceKernelTime(predict) {
+  if (typeof predict !== 'function') {
+    throw new Error(
+        'The first parameter should be a function, while ' +
+        `a(n) ${typeof predict} is found.`);
+  }
+
+  if (tf.getBackend() === 'webgl' && !queryTimerIsEnabled()) {
+    throw new Error(
+        'Query timer extension is not available. Please use Chrome 70+.');
+  }
+
+  const oldDebugMode = tf.env().getBool('DEBUG');
+  tf.env().set('DEBUG', true);
+  const oldLog = console.log;
+  let kernels = [];
+  console.log = msg => {
+    let parts = [];
+    if (typeof msg === 'string') {
+      parts = msg.split('\t').map(x => x.slice(2));
+    }
+
+    if (parts.length > 2) {
+      // heuristic for determining whether we've caught a profiler
+      // log statement as opposed to a regular console.log
+      // TODO(https://github.com/tensorflow/tfjs/issues/563): return timing
+      // information as part of tf.profile
+      const scopes =
+          parts[0].trim().split('||').filter(s => s !== 'unnamed scope');
+      kernels.push({
+        scopes: scopes,
+        time: Number.parseFloat(parts[1]),
+        output: parts[2].trim(),
+        inputs: parts[4],
+        gpuProgramsInfo: parts[5]
+      });
+    } else {
+      oldLog.call(oldLog, msg);
+    }
+  };
+  let res = await predict();
+  res = await downloadValuesFromTensorContainer(res);
+  await sleep(10);
+
+  // Switch back to the old log;
+  tf.env().set('DEBUG', oldDebugMode);
+  console.log = oldLog;
+
+  return kernels;
 }
