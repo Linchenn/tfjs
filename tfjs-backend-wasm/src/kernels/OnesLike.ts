@@ -15,9 +15,13 @@
  * =============================================================================
  */
 
-import {KernelConfig, KernelFunc, OnesLike, OnesLikeInputs} from '@tensorflow/tfjs-core';
+import {KernelConfig, KernelFunc, NamedTensorInfoMap, TensorInfo} from '@tensorflow/tfjs-core';
 
 import {BackendWasm} from '../backend_wasm';
+
+interface OnesLikeInputs extends NamedTensorInfoMap {
+  x: TensorInfo;
+}
 
 function onesLike(args: {inputs: OnesLikeInputs, backend: BackendWasm}) {
   const {inputs: {x}, backend} = args;
@@ -28,7 +32,7 @@ function onesLike(args: {inputs: OnesLikeInputs, backend: BackendWasm}) {
 }
 
 export const onesLikeConfig: KernelConfig = {
-  kernelName: OnesLike,
+  kernelName: 'OnesLike',
   backendName: 'wasm',
   kernelFunc: onesLike as {} as KernelFunc,
 };

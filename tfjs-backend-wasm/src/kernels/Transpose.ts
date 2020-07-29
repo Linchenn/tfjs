@@ -15,19 +15,27 @@
  * =============================================================================
  */
 
-import {KernelConfig, KernelFunc, TensorInfo, Transpose, TransposeAttrs, TransposeInputs} from '@tensorflow/tfjs-core';
+import {KernelConfig, NamedAttrMap, NamedTensorInfoMap, TensorInfo} from '@tensorflow/tfjs-core';
 
 import {BackendWasm} from '../backend_wasm';
 
 import {identity} from './Identity';
 import {CppDType} from './types';
 
+interface TransposeInputs extends NamedTensorInfoMap {
+  x: TensorInfo;
+}
+
+interface TransposeAttrs extends NamedAttrMap {
+  perm: number[];
+}
+
 let wasmTranspose: (
     xId: number, xShape: Uint8Array, xShapeLength: number, dtype: CppDType,
     outId: number, perm: Uint8Array, permLength: number) => void;
 
 function setup(backend: BackendWasm) {
-  wasmTranspose = backend.wasm.cwrap(Transpose, null /* void */, [
+  wasmTranspose = backend.wasm.cwrap('Transpose', null /* void */, [
     'number',  // xId
     'array',   // x.shape
     'number',  // x.shape.length
@@ -112,8 +120,8 @@ function removeOneSizeDims(
 }
 
 export const transposeConfig: KernelConfig = {
-  kernelName: Transpose,
+  kernelName: 'Transpose',
   backendName: 'wasm',
-  kernelFunc: transpose as {} as KernelFunc,
+  kernelFunc: transpose,
   setupFunc: setup,
 };

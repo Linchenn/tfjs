@@ -15,9 +15,7 @@
  * =============================================================================
  */
 
-import {getShapeCoords} from '../shader_preprocessor';
 import {computeDispatch} from '../webgpu_util';
-
 import {WebGPUProgram} from './webgpu_program';
 
 export class CropAndResizeProgram implements WebGPUProgram {
@@ -28,6 +26,7 @@ export class CropAndResizeProgram implements WebGPUProgram {
   dispatch: [number, number, number];
   variableNames = ['Image', 'Boxes', 'BoxInd'];
   workGroupSize: [number, number, number] = [4, 4, 4];
+  needsShapesUniforms = true;
 
   constructor(
       imageShape: [number, number, number, number], boxShape: [number, number],
@@ -76,7 +75,7 @@ export class CropAndResizeProgram implements WebGPUProgram {
       const float height_ratio = float(${heightRatio});
       const float width_ratio = float(${widthRatio});
       void writeResult(ivec4 coords,float value) {
-        if (coordsInBounds(coords, ${getShapeCoords(this.outputShape)})) {
+        if (coordsInBounds(coords, outShape)) {
           setOutput(coords[0], coords[1], coords[2], coords[3], value);
         }
       }

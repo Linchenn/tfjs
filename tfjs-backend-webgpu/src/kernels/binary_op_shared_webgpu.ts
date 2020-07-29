@@ -31,6 +31,7 @@ export class BinaryOpSharedProgram implements WebGPUProgram {
   variableNames = ['A', 'B'];
   workPerThread: number;
   workGroupSize: [number, number, number];
+  needsShapesUniforms = true;
 
   constructor(
       op: string, aShape: number[], bShape: number[],

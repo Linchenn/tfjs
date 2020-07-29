@@ -15,7 +15,7 @@
  * =============================================================================
  */
 
-import {backend_util, Conv2DBackpropInput, Conv2DBackpropInputAttrs, Conv2DBackpropInputInputs, KernelConfig, KernelFunc, TensorInfo, util} from '@tensorflow/tfjs-core';
+import {backend_util, Conv2DBackpropInput, Conv2DBackpropInputAttrs, Conv2DBackpropInputInputs, KernelConfig, NamedAttrMap, NamedTensorInfoMap, TensorInfo, util} from '@tensorflow/tfjs-core';
 
 import {BackendWasm} from '../backend_wasm';
 
@@ -63,12 +63,13 @@ function setup(backend: BackendWasm): void {
 
 function conv2DBackpropInput(args: {
   backend: BackendWasm,
-  inputs: Conv2DBackpropInputInputs,
-  attrs: Conv2DBackpropInputAttrs
+  inputs: NamedTensorInfoMap,
+  attrs: NamedAttrMap
 }): TensorInfo {
   const {backend, inputs, attrs} = args;
-  const {dy, filter} = inputs;
-  const {strides, pad, dataFormat, dimRoundingMode, inputShape} = attrs;
+  const {dy, filter} = inputs as Conv2DBackpropInputInputs;
+  const {strides, pad, dataFormat, dimRoundingMode, inputShape} =
+      attrs as {} as Conv2DBackpropInputAttrs;
 
   const dilations = 1;
 
@@ -124,5 +125,5 @@ export const conv2DBackpropInputConfig: KernelConfig = {
   kernelName: Conv2DBackpropInput,
   backendName: 'wasm',
   setupFunc: setup,
-  kernelFunc: conv2DBackpropInput as {} as KernelFunc
+  kernelFunc: conv2DBackpropInput
 };

@@ -31,7 +31,6 @@
     "@rollup/plugin-commonjs": "^11.0.2",
     "@rollup/plugin-node-resolve": "^7.1.1",
     "@rollup/plugin-typescript": "^3.0.0",
-    "@tensorflow/tfjs-backend-cpu": "link:../tfjs-backend-cpu",
     "@tensorflow/tfjs-backend-webgl": "link:../tfjs-backend-webgl",
     "@tensorflow/tfjs-core": "link:../tfjs-core",
     "@tensorflow/tfjs-converter": "link:../tfjs-converter",
@@ -59,7 +58,7 @@
   },
   "dependencies": {
     "@webgpu/glslang": "0.0.12",
-    "@webgpu/types": "0.0.28"
+    "@webgpu/types": "0.0.24"
   },
   "peerDependencies": {
     "@tensorflow/tfjs-core": "link:../tfjs-core"

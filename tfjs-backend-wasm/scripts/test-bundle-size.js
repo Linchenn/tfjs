@@ -36,7 +36,6 @@ exec(
 
 shell.cd(dirName);
 shell.cd(wasmDirName);
-
 exec(
     `yarn && yarn build-deps-ci && yarn build-ci && yarn rollup -c`,
     {silent: false});

@@ -92,26 +92,16 @@ function generateInput(model) {
  *     wrapping the predict function.
  * @param input The input tensor container for model inference.
  */
-function getPredictFnForModel(model, input) {
+function wrapPredictFnForModel(model, input) {
   let predict;
   if (model instanceof tf.GraphModel) {
-    // Because there's no straightforward way to analyze whether a graph has
-    // dynamic op, so we try to use `execute` and, if it fails, we will fall
-    // back to `executeAsync`.
-    try {
-      tf.tidy(() => {
-        model.execute(input);
-      });
-      predict = () => model.execute(input);
-    } catch (e) {
-      predict = async () => await model.executeAsync(input);
-    }
+    predict = () => model.executeAsync(input);
   } else if (model instanceof tf.LayersModel) {
     predict = () => model.predict(input);
   } else {
     throw new Error(
-        'Predict function was not found. Please provide a tf.GraphModel or ' +
-        'tf.LayersModel');
+        'Please pass in an instance of tf.GraphModel ' +
+        'or tf.LayersModel as the first parameter.');
   }
   return predict;
 }
@@ -119,12 +109,8 @@ function getPredictFnForModel(model, input) {
 /**
  * Executes the predict function for `model` (`model.predict` for tf.LayersModel
  * and `model.executeAsync` for tf.GraphModel) and times the inference process
- * for `numRuns` rounds. Then returns a promise that resolves with information
- * about the model's inference time:
- * - `times`: an array of inference time for each inference
- * - `averageTime`: the average time of all inferences
- * - `minTime`: the minimum time of all inferences
- * - `maxTime`: the maximum time of all inferences
+ * for `numRuns` rounds. Then returns a promise that resolves with an array of
+ * inference times for each inference process.
  *
  * The inference time contains the time spent by both `predict()` and `data()`
  * called by tensors in the prediction.
@@ -134,13 +120,10 @@ function getPredictFnForModel(model, input) {
  *    'https://tfhub.dev/google/imagenet/mobilenet_v2_140_224/classification/2';
  * const model = await tf.loadGraphModel(modelUrl, {fromTFHub: true});
  * const zeros = tf.zeros([1, 224, 224, 3]);
- * const timeInfo =
+ * const elapsedTimeArray =
  *    await profileInferenceTimeForModel(model, zeros, 2);
  *
- * console.log(`Elapsed time array: ${timeInfo.times}`);
- * console.log(`Average time: ${timeInfo.averageTime}`);
- * console.log(`Minimum time: ${timeInfo.minTime}`);
- * console.log(`Maximum time: ${timeInfo.maxTime}`);
+ * console.log(`Elapsed time array: ${elapsedTimeArray}`);
  * ```
  *
  * @param model An instance of tf.GraphModel or tf.LayersModel for timing the
@@ -149,18 +132,14 @@ function getPredictFnForModel(model, input) {
  * @param numRuns The number of rounds for timing the inference process.
  */
 async function profileInferenceTimeForModel(model, input, numRuns = 1) {
-  const predict = getPredictFnForModel(model, input);
+  const predict = wrapPredictFnForModel(model, input);
   return profileInferenceTime(predict, numRuns);
 }
 
 /**
  * Executes `predict()` and times the inference process for `numRuns` rounds.
- * Then returns a promise that resolves with information about the inference
- * time:
- * - `times`: an array of inference time for each inference
- * - `averageTime`: the average time of all inferences
- * - `minTime`: the minimum time of all inferences
- * - `maxTime`: the maximum time of all inferences
+ * Then returns a promise that resolves with an array of inference time for each
+ * inference process.
  *
  * The inference time contains the time spent by both `predict()` and `data()`
  * called by tensors in the prediction.
@@ -170,13 +149,10 @@ async function profileInferenceTimeForModel(model, input, numRuns = 1) {
  *    'https://tfhub.dev/google/imagenet/mobilenet_v2_140_224/classification/2';
  * const model = await tf.loadGraphModel(modelUrl, {fromTFHub: true});
  * const zeros = tf.zeros([1, 224, 224, 3]);
- * const timeInfo =
+ * const elapsedTimeArray =
  *    await profileInferenceTime(() => model.predict(zeros), 2);
  *
- * console.log(`Elapsed time array: ${timeInfo.times}`);
- * console.log(`Average time: ${timeInfo.averageTime}`);
- * console.log(`Minimum time: ${timeInfo.minTime}`);
- * console.log(`Maximum time: ${timeInfo.maxTime}`);
+ * console.log(`Elapsed time array: ${elapsedTimeArray}`);
  * ```
  *
  * @param predict The predict function to execute and time.
@@ -189,7 +165,7 @@ async function profileInferenceTime(predict, numRuns = 1) {
         `a(n) ${typeof predict} is found.`);
   }
 
-  const times = [];
+  const elapsedTimeArray = [];
   for (let i = 0; i < numRuns; i++) {
     const start = performance.now();
     const res = await predict();
@@ -198,20 +174,9 @@ async function profileInferenceTime(predict, numRuns = 1) {
     const elapsedTime = performance.now() - start;
 
     tf.dispose(res);
-    times.push(elapsedTime);
+    elapsedTimeArray.push(elapsedTime);
   }
-
-  const averageTime = times.reduce((acc, curr) => acc + curr, 0) / times.length;
-  const minTime = Math.min(...times);
-  const maxTime = Math.max(...times);
-  const timeInfo = {
-    times,
-    averageTime,
-    minTime,
-    maxTime
-
-  };
-  return timeInfo;
+  return elapsedTimeArray;
 }
 
 /**
@@ -281,7 +246,7 @@ async function downloadValuesFromTensorContainer(tensorContainer) {
  * @param input The input tensor container for model inference.
  */
 async function profileInferenceMemoryForModel(model, input) {
-  const predict = getPredictFnForModel(model, input);
+  const predict = wrapPredictFnForModel(model, input);
   return profileInferenceMemory(predict);
 }
 
@@ -326,8 +291,6 @@ async function profileInferenceMemory(predict) {
 }
 
 /**
- * This function is temporarily used and will be deleted after a new release of
- * tf-core. This function modifies
  * This function is temporarily used and will be deleted after a new release
  * of tf-core. This function modifies
  * [`tf.profile`](https://github.com/tensorflow/tfjs/blob/95b5f878218ee45c0f8464386ee01d1f96e78297/tfjs-core/src/engine.ts#L848)

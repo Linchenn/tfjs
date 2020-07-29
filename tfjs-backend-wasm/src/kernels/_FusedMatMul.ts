@@ -15,11 +15,24 @@
  * =============================================================================
  */
 
-import {_FusedMatMul, _FusedMatMulAttrs, _FusedMatMulInputs, KernelConfig, KernelFunc} from '@tensorflow/tfjs-core';
+import {KernelConfig, NamedAttrMap, NamedTensorInfoMap, TensorInfo} from '@tensorflow/tfjs-core';
 
 import {BackendWasm} from '../backend_wasm';
 
 import {FusableActivation} from './types';
+
+interface FusedMatMulInputs extends NamedTensorInfoMap {
+  a: TensorInfo;
+  b: TensorInfo;
+  bias?: TensorInfo;
+  preluActivationWeights?: TensorInfo;
+}
+
+interface FusedMatMulAttrs extends NamedAttrMap {
+  transposeA: boolean;
+  transposeB: boolean;
+  activation: FusableActivation;
+}
 
 let wasmFusedMatMul: (
     aId: number, aShape: Uint8Array, aShapeSize: number, bId: number,
@@ -28,7 +41,7 @@ let wasmFusedMatMul: (
     preluActivationWeightsId: number, outId: number) => void;
 
 function setup(backend: BackendWasm) {
-  wasmFusedMatMul = backend.wasm.cwrap(_FusedMatMul, null /* void */, [
+  wasmFusedMatMul = backend.wasm.cwrap('_FusedMatMul', null /* void */, [
     'number',  // a_id
     'array',   // a_shape
     'number',  // a_shape.length
@@ -45,9 +58,9 @@ function setup(backend: BackendWasm) {
 }
 
 function fusedBatchMatMul(args: {
-  inputs: _FusedMatMulInputs,
+  inputs: FusedMatMulInputs,
   backend: BackendWasm,
-  attrs: _FusedMatMulAttrs
+  attrs: FusedMatMulAttrs
 }) {
   const {inputs, backend, attrs} = args;
   const {a, b, bias, preluActivationWeights} = inputs;
@@ -101,8 +114,8 @@ function fusedBatchMatMul(args: {
 }
 
 export const fusedMatMulConfig: KernelConfig = {
-  kernelName: _FusedMatMul,
+  kernelName: '_FusedMatMul',
   backendName: 'wasm',
   setupFunc: setup,
-  kernelFunc: fusedBatchMatMul as {} as KernelFunc
+  kernelFunc: fusedBatchMatMul
 };

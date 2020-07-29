@@ -14,8 +14,7 @@
  * limitations under the License.
  * =============================================================================
  */
-import {Abs, KernelConfig} from '@tensorflow/tfjs-core';
+import {KernelConfig} from '@tensorflow/tfjs-core';
 
 import {createUnaryKernelConfig} from './unary_kernel';
-
-export const absConfig: KernelConfig = createUnaryKernelConfig(Abs);
+export const absConfig: KernelConfig = createUnaryKernelConfig('Abs');

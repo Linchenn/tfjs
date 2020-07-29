@@ -15,9 +15,14 @@
  * =============================================================================
  */
 
-import {backend_util, DepthwiseConv2dNative, DepthwiseConv2dNativeAttrs, DepthwiseConv2dNativeInputs, KernelConfig, KernelFunc, Tensor4D} from '@tensorflow/tfjs-core';
+import {backend_util, DepthwiseConv2dNativeAttrs, KernelConfig, KernelFunc, NamedTensorInfoMap, Tensor4D, TensorInfo} from '@tensorflow/tfjs-core';
 
 import {BackendWasm} from '../backend_wasm';
+
+interface DepthwiseConv2DInputs extends NamedTensorInfoMap {
+  x: TensorInfo;
+  filter: TensorInfo;
+}
 
 let wasmDepthwiseConv2d: (
     xId: number, batchSize: number, inputHeight: number, inputWidth: number,
@@ -29,7 +34,7 @@ let wasmDepthwiseConv2d: (
 
 function setup(backend: BackendWasm) {
   wasmDepthwiseConv2d =
-      backend.wasm.cwrap(DepthwiseConv2dNative, null /* void */, [
+      backend.wasm.cwrap('DepthwiseConv2dNative', null /* void */, [
         'number',  // xId
         'number',  // batchSize
         'number',  // inputHeight
@@ -53,7 +58,7 @@ function setup(backend: BackendWasm) {
 }
 
 function depthwiseConv2d(args: {
-  inputs: DepthwiseConv2dNativeInputs,
+  inputs: DepthwiseConv2DInputs,
   backend: BackendWasm,
   attrs: DepthwiseConv2dNativeAttrs
 }) {
@@ -103,7 +108,7 @@ function depthwiseConv2d(args: {
 }
 
 export const depthwiseConv2DNativeConfig: KernelConfig = {
-  kernelName: DepthwiseConv2dNative,
+  kernelName: 'DepthwiseConv2dNative',
   backendName: 'wasm',
   setupFunc: setup,
   kernelFunc: depthwiseConv2d as {} as KernelFunc
