@@ -142,12 +142,7 @@ th:first-child {
 }
 
 #gui select {
-  width: 100%;
-}
-
-#gui input[type=checkbox] {
-  width: 100%;
-  margin: 7 auto;
+  width: 100%
 }
 
 #gui .dg .property-name {
