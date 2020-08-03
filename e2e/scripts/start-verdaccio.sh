@@ -19,6 +19,9 @@
 # Start in scripts/ even if run from root directory
 cd "$(dirname "$0")"
 
+# Load functions for working with local NPM registry (Verdaccio)
+source local-registry.sh
+
 function cleanup {
   echo 'Cleaning up.'
   # Restore the original NPM and Yarn registry URLs and stop Verdaccio
@@ -52,57 +55,33 @@ set -x
 cd ..
 e2e_root_path=$PWD
 
-# ****************************************************************************
-# First, install env.
-# ****************************************************************************
-# emsdk
-# tfjs-backend-wasm needs emsdk to build. emsdk install needs to be done
-# before switch to local registry, otherwise some packages installation will
-# fail.
-# Todo(linazhao): Remove this once we have a custom docker with emsdk.
-cd ..
-git clone https://github.com/emscripten-core/emsdk.git
-cd emsdk
-./emsdk install 1.39.15
-./emsdk activate 1.39.15
-source ./emsdk_env.sh
-cd $e2e_root_path
+if [[ "$RELEASE" = true ]]; then
+  # ****************************************************************************
+  # First, install emsdk.
+  # ****************************************************************************
+  # tfjs-backend-wasm needs emsdk to build. emsdk install needs to be done
+  # before switch to local registry, otherwise some packages installation will
+  # fail.
+  # Todo(linazhao): Remove this once we have a custom docker with emsdk.
+  cd ..
+  git clone https://github.com/emscripten-core/emsdk.git
+  cd emsdk
+  ./emsdk install 1.39.15
+  ./emsdk activate 1.39.15
+  source ./emsdk_env.sh
+  cd $e2e_root_path
 
-# NVM
-touch ~/.bashrc
-curl https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+  # ****************************************************************************
+  # Second, publish the monorepo.
+  # ****************************************************************************
+  # Start the local NPM registry
+  startLocalRegistry "$e2e_root_path"/scripts/verdaccio.yaml
 
-# node 10
-nvm install 10
+  # Publish the monorepo
+  "$e2e_root_path"/scripts/publish-monorepo-ci.sh
 
-# yarn
-npm install -g yarn
+  # Todo(linazhao): Revise package.json to use the published version.
 
-# Load functions for working with local NPM registry (Verdaccio)
-source "$e2e_root_path"/scripts/local-registry.sh
-
-# ****************************************************************************
-# Second, publish the monorepo.
-# ****************************************************************************
-# Start the local NPM registry
-startLocalRegistry "$e2e_root_path"/scripts/verdaccio.yaml
-
-# Publish the monorepo and update package.json tfjs dependency to the
-# published version.
-"$e2e_root_path"/scripts/publish-tfjs-ci.sh
-
-# ****************************************************************************
-# Third, install the packages from local registry.
-# ****************************************************************************
-yarn
-
-# ****************************************************************************
-# Fourth, run integration tests against locally published version.
-# ****************************************************************************
-yarn test-ci
-
-# Cleanup
-cleanup
+  # Cleanup
+  cleanup
+fi
