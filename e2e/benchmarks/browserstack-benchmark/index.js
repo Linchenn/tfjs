@@ -15,6 +15,8 @@
  * =============================================================================
  */
 
+const TUNABLE_BROWSER_FIELDS =
+    ['os', 'os_version', 'browser', 'browser_version', 'device'];
 const state = {
   isVisorInitiated: false,
   isDatGuiHidden: false,
@@ -28,7 +30,7 @@ const state = {
   },
   benchmark: {model: 'mobilenet_v2', modelUrl: '', numRuns: 1, backend: 'wasm'},
 
-  run: () => {
+  run: async () => {
     initVisor();
     const tabId = createTab(state.browser);
 
@@ -41,7 +43,8 @@ const state = {
       delete benchmark['modelUrl'];
     }
 
-    reportBenchmarkResults({tabId});
+    benchmarkRes.tabId = tabId;
+    reportBenchmarkResults(benchmarkRes);
   }
 };
 
@@ -54,12 +57,34 @@ function initVisor() {
   // Bind an event to visor's 'Maximize/Minimize' button.
   const visorFullScreenButton =
       tfvis.visor().el.getElementsByTagName('button')[0];
+  const guiCloseButton = document.getElementsByClassName('close-button')[0];
+  const originalGuiWidth = gui.domElement.style.width;
+
+  // The following two bound events are to implemet:
+  // - When the visor is minimized, the controlled panel is hidden;
+  // - When the visor is maximized, the controlled panel appears;
+  gui.domElement.style.width = originalGuiWidth;
   visorFullScreenButton.onclick = () => {
     if (state.isDatGuiHidden) {
-      gui.show();
+      // When opening the controll panel, recover the size.
+      gui.open();
+      gui.domElement.style.width = originalGuiWidth;
     } else {
-      gui.hide();
+      // When closing the controll panel, narrow the size.
+      gui.close();
+      gui.domElement.style.width = '10%';
     }
+    state.isDatGuiHidden = !state.isDatGuiHidden;
+  };
+  guiCloseButton.onclick = () => {
+    if (state.isDatGuiHidden) {
+      // When opening the controll panel, recover the size.
+      gui.domElement.style.width = originalGuiWidth;
+    } else {
+      // When closing the controll panel, narrow the size.
+      gui.domElement.style.width = '10%';
+    }
+    tfvis.visor().toggleFullScreen();
     state.isDatGuiHidden = !state.isDatGuiHidden;
   };
 
@@ -106,28 +131,123 @@ function createTab(browserConf) {
 function reportBenchmarkResults(benchmarkResults) {
   const tabId = benchmarkResults.tabId;
 
-  // TODO: show error message, if `benchmarkResult.error != null`.
+  if (benchmarkResults.error != null) {
+    // TODO: show error message under the tab.
+    alert(benchmarkResults.error);
+    return;
+  }
 
-  // TODO:
-  //   1. draw a summary table for inference time and memory info.
-  //   2. draw a line chart for inference time.
-  //   3. draw a table for inference kernel information.
-  tfvis.visor().surface(
-      {name: 'benchmark results', tab: tabId, styles: {width: '100%'}});
+  drawInferenceTimeLineChart(benchmarkResults);
+  drawBenchmarkResultSummaryTable(benchmarkResults);
+  // TODO: draw a table for inference kernel information.
+  // This will be done, when we can get kernel timing info from `tf.profile()`.
 
   // TODO: delete 'loading indicator' under the tab.
 }
 
+function drawBenchmarkResultSummaryTable(benchmarkResults) {
+  const headers = ['Field', 'Value'];
+  const values = [];
+
+  const {timeInfo, memoryInfo, tabId} = benchmarkResults;
+  const timeArray = benchmarkResults.timeInfo.times;
+  const numRuns = timeArray.length;
+
+  if (numRuns >= 1) {
+    values.push(['1st inference time', printTime(timeArray[0])]);
+    if (numRuns >= 2) {
+      values.push(['2nd inference time', printTime(timeArray[1])]);
+    }
+    values.push([
+      `Average inference time (${numRuns} runs)`,
+      printTime(timeInfo.averageTime)
+    ]);
+    values.push(['Best time', printTime(timeInfo.minTime)]);
+    values.push(['Worst time', printTime(timeInfo.maxTime)]);
+  }
+
+  values.push(['Peak memory', printMemory(memoryInfo.peakBytes)]);
+  values.push(['Leaked tensors', memoryInfo.newTensors]);
+
+  values.push(['Number of kernels', memoryInfo.kernels.length]);
+
+  const surface = {
+    name: 'Benchmark Summary',
+    tab: tabId,
+    styles: {width: '100%'}
+  };
+  tfvis.render.table(surface, {headers, values});
+}
+
+async function drawInferenceTimeLineChart(benchmarkResults) {
+  const inferenceTimeArray = benchmarkResults.timeInfo.times;
+  if (inferenceTimeArray.length < 2) {
+    return;
+  }
+
+  const tabId = benchmarkResults.tabId;
+  const values = inferenceTimeArray.map((y, x) => ({x, y}));
+  const surface = {name: 'Inference Time', tab: tabId, styles: {width: '100%'}};
+  const data = {values};
+  const drawOptions =
+      {zoomToFit: true, xLabel: '', yLabel: 'time (ms)', xType: 'ordinal'};
+
+  await tfvis.render.linechart(surface, data, drawOptions);
+
+  // Whenever resize the parent div element, re-draw the chart canvas.
+  try {
+    const originalCanvasHeight = tfvis.visor()
+                                     .surface(surface)
+                                     .drawArea.getElementsByTagName('canvas')[0]
+                                     .height;
+    const labelElement = tfvis.visor().surface(surface).label;
+
+    new ResizeObserver(() => {
+      // Keep the height of chart/canvas unchanged.
+      tfvis.visor()
+          .surface(surface)
+          .drawArea.getElementsByTagName('canvas')[0]
+          .height = originalCanvasHeight;
+      tfvis.render.linechart(surface, data, drawOptions);
+    }).observe(labelElement);
+  } catch (e) {
+    console.warn(`The browser does not support the ResizeObserver API: ${e}`);
+  }
+}
+
 function drawBrowserSettingTable(tabId, browserConf) {
-  // TODO: Add a table.
-  tfvis.visor().surface(
-      {name: 'browser setting', tab: tabId, styles: {width: '100%'}});
+  const headers = ['Field', 'Value'];
+  const values = [];
+  for (const fieldName of TUNABLE_BROWSER_FIELDS) {
+    if (browserConf[fieldName] != null && browserConf[fieldName] !== 'null') {
+      const row = [fieldName, browserConf[fieldName]];
+      values.push(row);
+    }
+  }
+  const surface = {
+    name: 'Browser Setting',
+    tab: tabId,
+    styles: {width: '100%'}
+  };
+  tfvis.render.table(surface, {headers, values});
 }
 
 function drawBenchmarkParameterTable(tabId) {
-  // TODO: Add a table.
-  tfvis.visor().surface(
-      {name: 'benchmark parameter', tab: tabId, styles: {width: '100%'}});
+  const headers = ['Field', 'Value'];
+  const values = [];
+
+  for (const entry of Object.entries(state.benchmark)) {
+    if (entry[1] != null && entry[1] !== '') {
+      values.push(entry);
+    }
+  }
+
+  const surface = {
+    name: 'Benchmark Parameter',
+    tab: tabId,
+    styles: {width: '100%'}
+  };
+  tfvis.render.table(surface, {headers, values});
 }
 
 const gui = new dat.gui.GUI();
@@ -164,4 +284,18 @@ function showParameterSettings() {
   parameterFolder.add(state.benchmark, 'backend', ['wasm', 'webgl', 'cpu']);
   parameterFolder.open();
   return parameterFolder;
+}
+
+function printTime(elapsed) {
+  return `${elapsed.toFixed(1)} ms`;
+}
+
+function printMemory(bytes) {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  } else if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(2)} KB`;
+  } else {
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  }
 }
