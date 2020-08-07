@@ -29,10 +29,6 @@ const state = {
   benchmark: {model: 'mobilenet_v2', modelUrl: '', numRuns: 1, backend: 'wasm'},
 
   run: () => {
-    // Disable the button.
-    benchmarkButton.__li.style.pointerEvents = 'none';
-    benchmarkButton.__li.style.opacity = .5;
-
     initVisor();
     const tabId = createTab(state.browser);
 
