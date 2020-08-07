@@ -15,7 +15,6 @@
  * =============================================================================
  */
 
-const socket = io();
 const state = {
   isVisorInitiated: false,
   isDatGuiHidden: false,
@@ -46,7 +45,7 @@ const state = {
       delete benchmark['modelUrl'];
     }
 
-    socket.emit('run', {tabId, benchmark, browser: state.browser});
+    reportBenchmarkResults({tabId});
   }
 };
 
@@ -134,14 +133,6 @@ function drawBenchmarkParameterTable(tabId) {
   tfvis.visor().surface(
       {name: 'benchmark parameter', tab: tabId, styles: {width: '100%'}});
 }
-
-socket.on('benchmarkComplete', benchmarkResult => {
-  reportBenchmarkResults(benchmarkResult);
-
-  // Enable the button.
-  benchmarkButton.__li.style.pointerEvents = '';
-  benchmarkButton.__li.style.opacity = 1;
-});
 
 const gui = new dat.gui.GUI();
 gui.domElement.id = 'gui';
