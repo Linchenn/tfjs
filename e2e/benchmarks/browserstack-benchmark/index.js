@@ -125,9 +125,36 @@ function createTab(browserConf) {
   drawBrowserSettingTable(tabId, browserConf);
   drawBenchmarkParameterTable(tabId);
 
-  // TODO: add a 'loading indicator' under the tab.
-
+  setLoadingStatus(tabId);
   return tabId;
+}
+
+function setLoadingStatus(tabId) {
+  const surface = tfvis.visor().surface(
+      {name: 'Benchmark Summary', tab: tabId, styles: {width: '100%'}});
+  surface.label.innerHTML = 'Benchmarking...';
+  const loadingIndicator = document.createElement('img');
+  loadingIndicator.src =
+      'https://thumbs.gfycat.com/SparseThirstyFlyingfox-size_restricted.gif';
+  surface.drawArea.appendChild(loadingIndicator);
+}
+
+function setCompleteStatus(tabId) {
+  const surface = tfvis.visor().surface(
+      {name: 'Benchmark Summary', tab: tabId, styles: {width: '100%'}});
+  surface.label.innerHTML = 'Benchmark Summary';
+  surface.drawArea.removeChild(surface.drawArea.firstElementChild);
+}
+
+function setErrorStatus(tabId) {
+  const surface = tfvis.visor().surface(
+      {name: 'Benchmark Summary', tab: tabId, styles: {width: '100%'}});
+  surface.label.innerHTML = 'Error';
+  surface.label.style.color = 'red';
+  surface.label.style.borderColor = 'red';
+  if (surface.drawArea.childElementCount >= 1) {
+    surface.drawArea.removeChild(surface.drawArea.firstElementChild);
+  }
 }
 
 function reportBenchmarkResults(benchmarkResults) {
