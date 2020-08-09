@@ -16,6 +16,11 @@
  */
 
 const socket = io();
+const STATUS_COLOR_MAP = {
+  waiting: '#AAAAAA',
+  complete: '#357edd',
+  error: '#e8564b'
+};
 const state = {
   isVisorInitiated: false,
   isDatGuiHidden: false,
@@ -125,31 +130,55 @@ function createTab(browserConf) {
   drawBrowserSettingTable(tabId, browserConf);
   drawBenchmarkParameterTable(tabId);
 
+  // Add a status indicator tothe tab.
+  const visorTabList = document.getElementsByClassName('tf-tab');
+  const curTabElement = visorTabList[visorTabList.length - 1];
+
+  const indicatorElement = document.createElement('span');
+  indicatorElement.innerHTML = `.`;
+  indicatorElement.style.fontSize = '20px';
+  indicatorElement.id = `${tabId}-indicator`;
+  curTabElement.appendChild(indicatorElement);
+
   setLoadingStatus(tabId);
   return tabId;
 }
 
 function setLoadingStatus(tabId) {
+  // Set the status of the status indicator as waiting.
+  const indicatorElementId = `${tabId}-indicator`;
+  const indicatorElement = document.getElementById(indicatorElementId);
+  indicatorElement.style.color = STATUS_COLOR_MAP.waiting;
+
+  // Add loading indicator in the page.
   const surface = tfvis.visor().surface(
       {name: 'Benchmark Summary', tab: tabId, styles: {width: '100%'}});
-  surface.label.innerHTML = 'Benchmarking...';
-  const loadingIndicator = document.createElement('img');
-  loadingIndicator.src =
-      'https://thumbs.gfycat.com/SparseThirstyFlyingfox-size_restricted.gif';
+  const loadingIndicator = document.createElement('div');
+  loadingIndicator.className = 'loader';
   surface.drawArea.appendChild(loadingIndicator);
 }
 
 function setCompleteStatus(tabId) {
+  // Set the status of the status indicator as complete.
+  const indicatorElementId = `${tabId}-indicator`;
+  const indicatorElement = document.getElementById(indicatorElementId);
+  indicatorElement.style.color = STATUS_COLOR_MAP.complete;
+
+  // Add loading indicator in the page.
   const surface = tfvis.visor().surface(
       {name: 'Benchmark Summary', tab: tabId, styles: {width: '100%'}});
-  surface.label.innerHTML = 'Benchmark Summary';
   surface.drawArea.removeChild(surface.drawArea.firstElementChild);
 }
 
 function setErrorStatus(tabId) {
+  // Set the status of the status indicator as error.
+  const indicatorElementId = `${tabId}-indicator`;
+  const indicatorElement = document.getElementById(indicatorElementId);
+  indicatorElement.style.color = STATUS_COLOR_MAP.error;
+
+  // Add loading indicator in the page.
   const surface = tfvis.visor().surface(
       {name: 'Benchmark Summary', tab: tabId, styles: {width: '100%'}});
-  surface.label.innerHTML = 'Error';
   surface.label.style.color = 'red';
   surface.label.style.borderColor = 'red';
   if (surface.drawArea.childElementCount >= 1) {
